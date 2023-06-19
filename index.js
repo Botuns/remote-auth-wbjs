@@ -107,11 +107,21 @@ io.on('connection', (socket) => {
         console.log('connected to the server',data);
         socket.eit('hello','hello from the server');
     });
-    socket.on('createSession',(data)=>{
-        console.log('creating session',data);
-        const {id} = data;
-        createWhatsappSession(id,socket);
-    })
+    socket.on('createSession', (data) => {
+        console.log('creating session', data);
+        const { id } = data;
+        createWhatsappSession(id, socket)
+          .then(() => {
+            const successMessage = "Session created successfully";
+            socket.emit('sessionCreated', { message: successMessage });
+          })
+          .catch((error) => {
+            const errorMessage = "Failed to create session";
+            socket.emit('sessionCreationFailed', { message: errorMessage });
+          });
+      });
+      
+    
     socket.on('getAllChats',async (data)=>{
         console.log('getting all chats',data);
         const {id} = data;
@@ -119,4 +129,29 @@ io.on('connection', (socket) => {
         const chats = await client.getChats();
         socket.emit('allChats',{chats});
     })
+    socket.on('sendMessage', async (data) => {
+        console.log('sending message', data);
+        const { id, number, message } = data;
+        const client = allsessions[id];
+        
+        try {
+          // Check if the client is ready
+          if (!client.isReady) {
+            socket.emit('sendMessageError', { message: 'Client is not ready' });
+            return;
+          }
+    
+          // Create a new chat by phone number
+          const chat = await client.getContactById(number);
+    
+          // Send the message
+          await client.sendMessage(`${number}@c.us`, message);
+    
+          // Emit a success event
+          socket.emit('sendMessageSuccess', { message: 'Message sent successfully' });
+        } catch (error) {
+          console.error('Error sending message', error);
+          socket.emit('sendMessageError', { message: 'Error sending message' });
+        }
+      });
 });
