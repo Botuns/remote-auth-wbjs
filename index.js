@@ -44,7 +44,7 @@ const allsessions = {};
 const createWhatsappSession = async (id,socket) => {
     const client = new Client({
         puppeteer: {
-            headless: false,
+            headless: true,
         },
         authStrategy: new RemoteAuth({
             clientId: id,
