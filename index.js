@@ -6,7 +6,15 @@ const { MongoStore } = require('wwebjs-mongo');
 const mongoose = require('mongoose');
 const {Server} = require('socket.io');
 const http = require('http');
+const cors = require('cors')
 const server = http.createServer(app);
+app.use(cors())
+app.use(function(req, res, next) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    next();
+  });
 let store;
 const MONGODB_URI = 'mongodb+srv://dolapoabdulqahar:dolapoabdulqahar@whatsapp.01vtdq7.mongodb.net/?retryWrites=true&w=majority';
 const io = new Server(server,{
