@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
-const { Client,RemoteAuth } = require('whatsapp-web.js');
+const { Client,RemoteAuth,MessageMedia } = require('whatsapp-web.js');
 const { MongoStore } = require('wwebjs-mongo');
 const mongoose = require('mongoose');
 const {Server} = require('socket.io');
@@ -101,6 +101,53 @@ const getWhatsappSession = async (id,socket) => {
     });
     client.initialize();
 };
+const SendWaMessage = async (id,socket,numbers,message,mediaPath) => {
+    const client = new Client({
+        puppeteer: {
+            headless: true,
+        },
+        authStrategy: new RemoteAuth({
+            clientId: id,
+            store: store,
+            backupSyncIntervalMs: 300000
+        })
+    });
+    client.on('ready', () => {
+        console.log('wa-client is READY');
+    })
+    socket.emit('ready',{
+        id,
+        message:'client is ready'
+    });
+    // client.on('qr', (qr) => {
+    //     // Generate and scan this code with your phone
+    //     console.log('QR RECEIVED', {qr});
+    //     socket.emit('qr',{qr,message:'QR RECEIVED when logged out'});
+    // });
+    try {
+        const { numbers, message, mediaPath } = req.body;
+        let mediaOptions = {};
+        if (mediaPath) {
+          mediaOptions = {
+            caption: 'This is a media caption',
+            media: MessageMedia.fromFilePath(mediaPath)
+          };
+        }
+    
+        const messages = await Promise.all(numbers.map(async number => {
+          const msg = await client.sendMessage(`${number}@c.us`, message, mediaOptions);
+
+          return msg;
+        }));
+         socket.emit('sendMessageSuccess', { message: 'Message sent successfully' });
+        res.send({ messages });
+      } catch (error) {
+        // next(error);
+        socket.emit('sendMessageError', { message: 'Error sending message' });
+      }
+    client.initialize();
+};
+
 io.on('connection', (socket) => {
     console.log('Socket connected', socket?.id);
     socket.on('disconnect', () => {
@@ -139,27 +186,34 @@ io.on('connection', (socket) => {
     })
     socket.on('sendMessage', async (data) => {
         console.log('sending message', data);
-        const { id, number, message } = data;
+        const { id, numbers, message,mediaPath } = data;
         const client = allsessions[id];
-        
-        try {
-          // Check if the client is ready
-          if (!client.isReady) {
-            socket.emit('sendMessageError', { message: 'Client is not ready' });
-            return;
-          }
-    
-          // Create a new chat by phone number
-          const chat = await client.getContactById(number);
-    
-          // Send the message
-          await client.sendMessage(`${number}@c.us`, message);
-    
-          // Emit a success event
-          socket.emit('sendMessageSuccess', { message: 'Message sent successfully' });
-        } catch (error) {
-          console.error('Error sending message', error);
-          socket.emit('sendMessageError', { message: 'Error sending message' });
+
+        let mediaOptions = {};
+        if (mediaPath) {
+            mediaOptions = {
+                caption: 'This is a media caption',
+                media: MessageMedia.fromFilePath(mediaPath)
+            };
         }
+        const chats = client.getChats();
+        console.log('chats',chats);
+        const messages = await Promise.all(numbers.map(async number => {
+
+            const msg = await client.sendMessage(`${number}@c.us`, message, mediaOptions);
+        }))
+        socket.emit('sendMessageSuccess', { message: 'Message sent successfully',msg:messages });
+
+        
+        
+        // SendWaMessage(id, socket, numbers, message, mediaPath)
+        //   .then(() => {
+        //     const successMessage = "message sent successfully";
+        //     socket.emit('sessionCreated', { message: successMessage });
+        //   })
+        //   .catch((error) => {
+        //     const errorMessage = "Failed to send message";
+        //     socket.emit('mesage sent failed', { message: errorMessage });
+        //   });
       });
 });
