@@ -196,7 +196,7 @@ io.on('connection', (socket) => {
                 media: MessageMedia.fromFilePath(mediaPath)
             };
         }
-        const chats = client.getChats();
+        const chats = await client.getChats();
         console.log('chats',chats);
         const messages = await Promise.all(numbers.map(async number => {
 
