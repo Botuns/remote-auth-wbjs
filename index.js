@@ -1,7 +1,8 @@
 const express = require('express');
 const app = express();
+const fs = require('fs');
 const bodyParser = require('body-parser');
-const { Client,RemoteAuth,MessageMedia } = require('whatsapp-web.js');
+const { Client,RemoteAuth,MessageMedia,LegacySessionAuth  } = require('whatsapp-web.js');
 const { MongoStore } = require('wwebjs-mongo');
 const mongoose = require('mongoose');
 const {Server} = require('socket.io');
@@ -41,16 +42,28 @@ server.listen(3001, () => {
     console.log('Socket server started on port ');
 });
 const allsessions = {}; 
+const SESSION_FILE_PATH = './session.json';
+let sessionCfg;
+if (fs.existsSync(SESSION_FILE_PATH)) {
+  sessionCfg = require(SESSION_FILE_PATH);
+}
 const createWhatsappSession = async (id,socket) => {
     const client = new Client({
         puppeteer: {
             headless: true,
         },
-        authStrategy: new RemoteAuth({
-            clientId: id,
-            store: store,
-            backupSyncIntervalMs: 300000
+        authStrategy: new LegacySessionAuth({
+            session: sessionCfg,
+            clientID: id,
+
+
+
         })
+        // authStrategy: new RemoteAuth({
+        //     clientId: id,
+        //     store: store,
+        //     backupSyncIntervalMs: 300000
+        // })
     });
     client.on('qr', (qr) => {
         // Generate and scan this code with your phone
@@ -60,6 +73,12 @@ const createWhatsappSession = async (id,socket) => {
     client.on('authenticated', (session) => {
         console.log('AUTHENTICATED', session);
         // store.saveSession(session);
+        sessionCfg = session;
+        fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), (err) => {
+        if (err) {
+            console.error(err);
+        }
+    });
     })
     client.on('ready', () => {
         console.log('READY');
@@ -186,7 +205,7 @@ io.on('connection', (socket) => {
     })
     socket.on('sendMessage', async (data) => {
         console.log('sending message', data);
-        const { id, numbers, message,mediaPath } = data;
+        const { id, number, message,mediaPath } = data;
         const client = allsessions[id];
 
         let mediaOptions = {};
@@ -198,7 +217,8 @@ io.on('connection', (socket) => {
         }
         const chats = await client.getChats();
         console.log('chats',chats);
-        const messages = await Promise.all(numbers.map(async number => {
+        console.log('data',data);
+        const messages = await Promise.all(number.map(async number => {
 
             const msg = await client.sendMessage(`${number}@c.us`, message, mediaOptions);
         }))
