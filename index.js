@@ -182,7 +182,7 @@ io.on('connection', (socket) => {
         socket.eit('hello','hello from the server');
     });
     socket.on('createSession', (data) => {
-        console.log('creating session', data);
+        console.log('creating session for a user', data);
         const { id } = data;
         createWhatsappSession(id, socket)
           .then(() => {
